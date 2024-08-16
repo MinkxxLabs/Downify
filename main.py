@@ -14,6 +14,7 @@ class App(ctk.CTk):
         self.geometry("600x350")
         self.title("Spotify Downloader")
         self.resizable(False, False)
+        self.iconbitmap("assets/spotify.ico")
         ctk.set_appearance_mode("dark")
 
         self.download_path = ctk.StringVar(value=f"C:/Users/{current_windows_username}/Downloads")
