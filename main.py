@@ -1,4 +1,5 @@
 import os
+import sys
 import getpass
 import threading
 import requests
@@ -8,13 +9,23 @@ from customtkinter import filedialog
 
 current_windows_username = getpass.getuser()
 
+def resource_path(relative_path):
+    """ Get absolute path to resource, works for dev and for PyInstaller """
+    try:
+        # PyInstaller creates a temp folder and stores path in _MEIPASS
+        base_path = sys._MEIPASS
+    except Exception:
+        base_path = os.path.abspath(".")
+
+    return os.path.join(base_path, relative_path)
+
 class App(ctk.CTk):
     def __init__(self):
         super().__init__()
         self.geometry("600x350")
         self.title("Spotify Downloader")
         self.resizable(False, False)
-        self.iconbitmap("assets/spotify.ico")
+        self.iconbitmap(resource_path("assets\ico_icons\spotify_512px.ico"))
         ctk.set_appearance_mode("dark")
 
         self.download_path = ctk.StringVar(value=f"C:/Users/{current_windows_username}/Downloads")
@@ -22,7 +33,7 @@ class App(ctk.CTk):
         self.progress_var = ctk.StringVar(value="0 %")
         self.url_var = ctk.StringVar()
 
-        self.thread_running = False  # Flag to track if any thread is running
+        self.thread_running = False
 
         self.create_widgets()
         
@@ -124,7 +135,7 @@ class App(ctk.CTk):
             self.output_var.set("Error downloading track")
 
         finally:
-            self.reset_ui()  # Ensure UI is reset after operation
+            self.reset_ui()
 
     def start_download_track_thread(self, track_type, track_id):
         track_thread = threading.Thread(target=self.download_track, args=(track_type, track_id))
@@ -170,7 +181,7 @@ class App(ctk.CTk):
             self.output_var.set("Error downloading album")
 
         finally:
-            self.reset_ui()  # Ensure UI is reset after operation
+            self.reset_ui()
 
     def start_download_album_thread(self, track_type, track_id):
         album_thread = threading.Thread(target=self.download_album, args=(track_type, track_id))
@@ -216,7 +227,7 @@ class App(ctk.CTk):
             self.output_var.set("Error downloading playlist")
 
         finally:
-            self.reset_ui()  # Ensure UI is reset after operation
+            self.reset_ui()
 
     def start_download_playlist_thread(self, track_type, track_id):
         playlist_thread = threading.Thread(target=self.download_playlist, args=(track_type, track_id))
