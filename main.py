@@ -29,7 +29,7 @@ def clear_temp():
 def convertToMP3(file_path):
     prt = file_path.split(".")
     ext = prt[-1]
-    if ext != ".mp3":
+    if ext != "mp3":
         os.rename(file_path, f"{prt[0]}.mp3")
 
 class App(ctk.CTk):
@@ -47,9 +47,11 @@ class App(ctk.CTk):
         self.url_var = ctk.StringVar()
 
         self.thread_running = False
+        self.total_items = 0
+        self.processed_items = 0
 
         self.create_widgets()
-        
+
     def create_widgets(self):
         # Title text
         title_label = ctk.CTkLabel(self, text="Spotify Downloader", fg_color="transparent", font=("Inter", 30))
@@ -94,7 +96,7 @@ class App(ctk.CTk):
     def download(self):
         if self.thread_running:
             return
-        
+
         self.thread_running = True
         self.url_entry.configure(state="disabled")
         self.download_btn.configure(state="disabled")
@@ -119,6 +121,13 @@ class App(ctk.CTk):
         self.thread_running = False
         clear_temp()
 
+    def update_progress(self):
+        if self.total_items > 0:
+            progress = (self.processed_items / self.total_items) * 100
+            self.progressbar.set(progress / 100)
+            self.progress_var.set(f"{int(progress)} %")
+            self.update()
+
     def download_track(self, track_type, track_id):
         try:
             res = requests.get(f"https://spotipy-api.vercel.app/spotipy?type={track_type}&id={track_id}")
@@ -131,10 +140,9 @@ class App(ctk.CTk):
             self.download_thumbnail(name, thumbnail_url)
 
             self.output_var.set(f"Downloading : {name} {artists}")
-            
+
             query = pytube.Search(f"{name} {artists}")
             yt = query.results[0]
-            yt.register_on_progress_callback(self.on_progress)
 
             audio_streams = self.get_audio_streams(yt.streams)
             abr = ["160kbps", "128kbps", "70kbps", "50kbps", "48kbps"]
@@ -149,14 +157,16 @@ class App(ctk.CTk):
                     except Exception as e:
                         print(e)
                         continue
+
             self.output_var.set(f"Downloaded : {name} {artists}")
-            self.output_var.set(f"")
 
         except Exception as e:
             print(f"Error downloading track: {e}")
             self.output_var.set("Error downloading track")
 
         finally:
+            self.processed_items += 1
+            self.update_progress()
             self.reset_ui()
 
     def start_download_track_thread(self, track_type, track_id):
@@ -170,18 +180,17 @@ class App(ctk.CTk):
 
             album_name = data["album_name"]
             tracks = data["tracks"]
-            total_tracks = len(tracks)
-            count = 1
+            self.total_items = len(tracks)
+            self.processed_items = 0
 
             thumbnail_url = data["images"][-1]["url"]
             self.download_thumbnail(album_name, thumbnail_url)
 
             for track in tracks:
                 query = pytube.Search(f"{track['track_name']} {track['artists']}")
-                self.output_var.set(f"Downloading : ({count}/{total_tracks}) {track['track_name']} {track['artists']}")
+                self.output_var.set(f"Downloading : {track['track_name']} {track['artists']}")
 
                 yt = query.results[0]
-                yt.register_on_progress_callback(self.on_progress)
 
                 audio_streams = self.get_audio_streams(yt.streams)
                 abr = ["160kbps", "128kbps", "70kbps", "50kbps", "48kbps"]
@@ -196,10 +205,9 @@ class App(ctk.CTk):
                         except Exception as e:
                             print(e)
                             continue
-                count += 1
-                self.progressbar.set(0)
-                self.progress_var.set("0 %")
-                self.output_var.set(f"Downloaded : {track['track_name']} {track['artists']}")
+                self.processed_items += 1
+                self.update_progress()
+
             self.output_var.set("")
 
         except Exception as e:
@@ -217,21 +225,19 @@ class App(ctk.CTk):
         try:
             res = requests.get(f"https://spotipy-api.vercel.app/spotipy?type={track_type}&id={track_id}")
             data = res.json()
-            playlist_owner = data["owner"]
             playlist_name = data["playlist_name"]
             tracks = data["tracks"]
-            total_tracks = len(tracks)
-            count = 1
+            self.total_items = len(tracks)
+            self.processed_items = 0
 
             for track in tracks:
                 thumbnail_url = track["images"][-1]["url"]
                 self.download_thumbnail(track['track_name'], thumbnail_url)
                 
                 query = pytube.Search(f"{track['track_name']} {track['artists']}")
-                self.output_var.set(f"Downloading : ({count}/{total_tracks}) {track['track_name']} {track['artists']}")
+                self.output_var.set(f"Downloading : {track['track_name']} {track['artists']}")
 
                 yt = query.results[0]
-                yt.register_on_progress_callback(self.on_progress)
 
                 audio_streams = self.get_audio_streams(yt.streams)
                 abr = ["160kbps", "128kbps", "70kbps", "50kbps", "48kbps"]
@@ -240,16 +246,15 @@ class App(ctk.CTk):
                     if quality in audio_streams:
                         try:
                             stream = audio_streams[quality][0]
-                            song_path = stream.download(output_path=os.path.join(self.download_path.get(), f"{playlist_name} - {playlist_owner}"))
+                            song_path = stream.download(output_path=os.path.join(self.download_path.get(), f"{playlist_name}"))
                             convertToMP3(song_path)
                             break
                         except Exception as e:
                             print(e)
                             continue
-                count += 1
-                self.progressbar.set(0)
-                self.progress_var.set("0 %")
-                self.output_var.set(f"Downloaded : {track['track_name']} {track['artists']}")
+                self.processed_items += 1
+                self.update_progress()
+
             self.output_var.set("")
 
         except Exception as e:
@@ -262,14 +267,6 @@ class App(ctk.CTk):
     def start_download_playlist_thread(self, track_type, track_id):
         playlist_thread = threading.Thread(target=self.download_playlist, args=(track_type, track_id))
         playlist_thread.start()
-
-    def on_progress(self, stream, chunk, bytes_remaining):
-        total_size = stream.filesize
-        bytes_downloaded = total_size - bytes_remaining
-        completed = (bytes_downloaded / total_size) * 100
-        self.progress_var.set(f"{int(completed)} %")
-        self.progressbar.set(float(completed) / 100)
-        self.progressbar.update()
 
     def get_audio_streams(self, streams):
         data = {}
