@@ -6,6 +6,8 @@ import requests
 import pytube
 import customtkinter as ctk
 from customtkinter import filedialog
+from PIL import Image
+from io import BytesIO
 
 current_windows_username = getpass.getuser()
 
@@ -19,13 +21,24 @@ def resource_path(relative_path):
 
     return os.path.join(base_path, relative_path)
 
+def clear_temp():
+    temp_path = resource_path("temp")
+    for i in os.listdir(temp_path):
+        os.remove(os.path.join(temp_path, i))
+
+def convertToMP3(file_path):
+    prt = file_path.split(".")
+    ext = prt[-1]
+    if ext != ".mp3":
+        os.rename(file_path, f"{prt[0]}.mp3")
+
 class App(ctk.CTk):
     def __init__(self):
         super().__init__()
-        self.geometry("600x350")
+        self.geometry("600x400")
         self.title("Spotify Downloader")
         self.resizable(False, False)
-        self.iconbitmap(resource_path("assets\ico_icons\spotify_512px.ico"))
+        self.iconbitmap(resource_path("assets/ico_icons/spotify_512px.ico"))
         ctk.set_appearance_mode("dark")
 
         self.download_path = ctk.StringVar(value=f"C:/Users/{current_windows_username}/Downloads")
@@ -69,7 +82,10 @@ class App(ctk.CTk):
 
         # Output label
         self.output_label = ctk.CTkLabel(self, text="test", fg_color="transparent", font=("Inter", 12), textvariable=self.output_var)
-        self.output_label.place(x=50, y=300)
+        self.output_label.place(x=100, y=300)
+
+        self.image_label = ctk.CTkLabel(self, text="")
+        self.image_label.place(x=20, y=300)
 
     def browse_path(self):
         download_directory = filedialog.askdirectory(initialdir=self.download_path.get(), title="Select Download Directory")
@@ -99,7 +115,9 @@ class App(ctk.CTk):
         self.url_var.set("")
         self.url_entry.configure(state="normal")
         self.download_btn.configure(state="normal")
+        self.image_label.configure(image=None)
         self.thread_running = False
+        clear_temp()
 
     def download_track(self, track_type, track_id):
         try:
@@ -108,6 +126,9 @@ class App(ctk.CTk):
 
             name = data["track_name"]
             artists = data["artists"]
+
+            thumbnail_url = data["images"][-1]["url"]
+            self.download_thumbnail(name, thumbnail_url)
 
             self.output_var.set(f"Downloading : {name} {artists}")
             
@@ -122,7 +143,8 @@ class App(ctk.CTk):
                 if quality in audio_streams:
                     try:
                         stream = audio_streams[quality][0]
-                        stream.download(output_path=self.download_path.get())
+                        song_path = stream.download(output_path=self.download_path.get())
+                        convertToMP3(song_path)
                         break
                     except Exception as e:
                         print(e)
@@ -151,6 +173,9 @@ class App(ctk.CTk):
             total_tracks = len(tracks)
             count = 1
 
+            thumbnail_url = data["images"][-1]["url"]
+            self.download_thumbnail(album_name, thumbnail_url)
+
             for track in tracks:
                 query = pytube.Search(f"{track['track_name']} {track['artists']}")
                 self.output_var.set(f"Downloading : ({count}/{total_tracks}) {track['track_name']} {track['artists']}")
@@ -165,7 +190,8 @@ class App(ctk.CTk):
                     if quality in audio_streams:
                         try:
                             stream = audio_streams[quality][0]
-                            stream.download(output_path=os.path.join(self.download_path.get(), album_name))
+                            song_path = stream.download(output_path=os.path.join(self.download_path.get(), album_name))
+                            convertToMP3(song_path)
                             break
                         except Exception as e:
                             print(e)
@@ -198,6 +224,9 @@ class App(ctk.CTk):
             count = 1
 
             for track in tracks:
+                thumbnail_url = track["images"][-1]["url"]
+                self.download_thumbnail(track['track_name'], thumbnail_url)
+                
                 query = pytube.Search(f"{track['track_name']} {track['artists']}")
                 self.output_var.set(f"Downloading : ({count}/{total_tracks}) {track['track_name']} {track['artists']}")
 
@@ -211,7 +240,8 @@ class App(ctk.CTk):
                     if quality in audio_streams:
                         try:
                             stream = audio_streams[quality][0]
-                            stream.download(output_path=os.path.join(self.download_path.get(), f"{playlist_name} - {playlist_owner}"))
+                            song_path = stream.download(output_path=os.path.join(self.download_path.get(), f"{playlist_name} - {playlist_owner}"))
+                            convertToMP3(song_path)
                             break
                         except Exception as e:
                             print(e)
@@ -252,6 +282,18 @@ class App(ctk.CTk):
                     else:
                         data[q] = [i]
         return data
+    
+    def download_thumbnail(self, image_name, image_url):
+        response = requests.get(image_url)
+        download_path = resource_path(os.path.join("temp", f"{image_name}.png"))
+
+        if response.status_code == 200:
+            image = Image.open(BytesIO(response.content))
+            image.save(download_path)
+            my_image = ctk.CTkImage(light_image=Image.open(download_path),dark_image=Image.open(download_path),size=(64, 64))
+            self.image_label.configure(image=my_image)
+        else:
+            self.image_label.configure(image=None)
 
 if __name__ == "__main__":
     app = App()
