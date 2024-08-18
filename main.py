@@ -3,11 +3,14 @@ import sys
 import getpass
 import threading
 import requests
+import re
+from datetime import datetime
+from io import BytesIO
+from PIL import Image
+
 import pytube
 import customtkinter as ctk
 from customtkinter import filedialog
-from PIL import Image
-from io import BytesIO
 
 current_windows_username = getpass.getuser()
 
@@ -49,6 +52,7 @@ class App(ctk.CTk):
         self.thread_running = False
         self.total_items = 0
         self.processed_items = 0
+        self.regex = r"^(https:\/\/open.spotify.com\/)(.*)$"
 
         self.create_widgets()
 
@@ -102,6 +106,11 @@ class App(ctk.CTk):
         self.download_btn.configure(state="disabled")
 
         link = self.url_var.get()
+        if not re.search(self.regex, link):
+            self.output_var.set("Not a valid Spotify link.")
+            self.reset_ui()
+            return
+
         track_type, track_id = link.split("/")[-2:]
 
         if track_type == "track":
@@ -137,7 +146,7 @@ class App(ctk.CTk):
             artists = data["artists"]
 
             thumbnail_url = data["images"][-1]["url"]
-            self.download_thumbnail(name, thumbnail_url)
+            self.download_thumbnail(thumbnail_url)
 
             self.output_var.set(f"Downloading : {name} {artists}")
 
@@ -184,29 +193,34 @@ class App(ctk.CTk):
             self.processed_items = 0
 
             thumbnail_url = data["images"][-1]["url"]
-            self.download_thumbnail(album_name, thumbnail_url)
+            self.download_thumbnail(thumbnail_url)
 
             for track in tracks:
-                query = pytube.Search(f"{track['track_name']} {track['artists']}")
-                self.output_var.set(f"Downloading : {track['track_name']} {track['artists']}")
+                try:
+                    query = pytube.Search(f"{track['track_name']} {track['artists']}")
+                    self.output_var.set(f"Downloading : {track['track_name']} {track['artists']}")
 
-                yt = query.results[0]
+                    yt = query.results[0]
 
-                audio_streams = self.get_audio_streams(yt.streams)
-                abr = ["160kbps", "128kbps", "70kbps", "50kbps", "48kbps"]
+                    audio_streams = self.get_audio_streams(yt.streams)
+                    abr = ["160kbps", "128kbps", "70kbps", "50kbps", "48kbps"]
 
-                for quality in abr:
-                    if quality in audio_streams:
-                        try:
-                            stream = audio_streams[quality][0]
-                            song_path = stream.download(output_path=os.path.join(self.download_path.get(), album_name))
-                            convertToMP3(song_path)
-                            break
-                        except Exception as e:
-                            print(e)
-                            continue
-                self.processed_items += 1
-                self.update_progress()
+                    for quality in abr:
+                        if quality in audio_streams:
+                            try:
+                                stream = audio_streams[quality][0]
+                                song_path = stream.download(output_path=os.path.join(self.download_path.get(), album_name))
+                                convertToMP3(song_path)
+                                break
+                            except Exception as e:
+                                print(e)
+                                continue
+                    self.processed_items += 1
+                    self.update_progress()
+                except Exception as e:
+                    print(f"Error downloading {track['track_name']}: {e}")
+                    self.output_var.set(f"Error downloading {track['track_name']}: {e}")
+                    continue
 
             self.output_var.set("")
 
@@ -231,29 +245,34 @@ class App(ctk.CTk):
             self.processed_items = 0
 
             for track in tracks:
-                thumbnail_url = track["images"][-1]["url"]
-                self.download_thumbnail(track['track_name'], thumbnail_url)
-                
-                query = pytube.Search(f"{track['track_name']} {track['artists']}")
-                self.output_var.set(f"Downloading : {track['track_name']} {track['artists']}")
+                try:
+                    thumbnail_url = track["images"][-1]["url"]
+                    self.download_thumbnail(thumbnail_url)
+                    
+                    query = pytube.Search(f"{track['track_name']} {track['artists']}")
+                    self.output_var.set(f"Downloading : {track['track_name']} {track['artists']}")
 
-                yt = query.results[0]
+                    yt = query.results[0]
 
-                audio_streams = self.get_audio_streams(yt.streams)
-                abr = ["160kbps", "128kbps", "70kbps", "50kbps", "48kbps"]
+                    audio_streams = self.get_audio_streams(yt.streams)
+                    abr = ["160kbps", "128kbps", "70kbps", "50kbps", "48kbps"]
 
-                for quality in abr:
-                    if quality in audio_streams:
-                        try:
-                            stream = audio_streams[quality][0]
-                            song_path = stream.download(output_path=os.path.join(self.download_path.get(), f"{playlist_name}"))
-                            convertToMP3(song_path)
-                            break
-                        except Exception as e:
-                            print(e)
-                            continue
-                self.processed_items += 1
-                self.update_progress()
+                    for quality in abr:
+                        if quality in audio_streams:
+                            try:
+                                stream = audio_streams[quality][0]
+                                song_path = stream.download(output_path=os.path.join(self.download_path.get(), f"{playlist_name}"))
+                                convertToMP3(song_path)
+                                break
+                            except Exception as e:
+                                print(e)
+                                continue
+                    self.processed_items += 1
+                    self.update_progress()
+                except Exception as e:
+                    print(f"Error downloading {track['track_name']}: {e}")
+                    self.output_var.set(f"Error downloading {track['track_name']}: {e}")
+                    continue
 
             self.output_var.set("")
 
@@ -280,9 +299,12 @@ class App(ctk.CTk):
                         data[q] = [i]
         return data
     
-    def download_thumbnail(self, image_name, image_url):
+    def download_thumbnail(self, image_url):
+        current_time = datetime.now()
+        time_str = current_time.strftime("%Y%m%d%H%M%S")
+
         response = requests.get(image_url)
-        download_path = resource_path(os.path.join("temp", f"{image_name}.png"))
+        download_path = resource_path(os.path.join("temp", f"{time_str}.png"))
 
         if response.status_code == 200:
             image = Image.open(BytesIO(response.content))
