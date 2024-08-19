@@ -17,7 +17,6 @@ current_windows_username = getpass.getuser()
 def resource_path(relative_path):
     """ Get absolute path to resource, works for dev and for PyInstaller """
     try:
-        # PyInstaller creates a temp folder and stores path in _MEIPASS
         base_path = sys._MEIPASS
     except Exception:
         base_path = os.path.abspath(".")
@@ -38,10 +37,10 @@ def convertToMP3(file_path):
 class App(ctk.CTk):
     def __init__(self):
         super().__init__()
-        self.geometry("600x400")
+        self.geometry("600x380")
         self.title("Spotify Downloader")
         self.resizable(False, False)
-        self.iconbitmap(resource_path("assets/ico_icons/spotify_512px.ico"))
+        self.iconbitmap(resource_path("assets\\ico_icons\\spotify_512px.ico"))
         ctk.set_appearance_mode("dark")
 
         self.download_path = ctk.StringVar(value=f"C:/Users/{current_windows_username}/Downloads")
@@ -78,7 +77,7 @@ class App(ctk.CTk):
         self.download_btn.place(x=250, y=190)
 
         # Progress bar
-        self.progressbar = ctk.CTkProgressBar(self, width=400)
+        self.progressbar = ctk.CTkProgressBar(self, width=400, height=10)
         self.progressbar.set(0)
         self.progressbar.place(x=70, y=250)
 
@@ -177,6 +176,7 @@ class App(ctk.CTk):
             self.processed_items += 1
             self.update_progress()
             self.reset_ui()
+            self.output_var.set("")
 
     def start_download_track_thread(self, track_type, track_id):
         track_thread = threading.Thread(target=self.download_track, args=(track_type, track_id))
