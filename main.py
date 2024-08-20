@@ -4,6 +4,7 @@ import getpass
 import threading
 import requests
 import re
+import logging
 from datetime import datetime
 from io import BytesIO
 from PIL import Image
@@ -11,8 +12,6 @@ from PIL import Image
 import pytube
 import customtkinter as ctk
 from customtkinter import filedialog
-
-current_windows_username = getpass.getuser()
 
 def resource_path(relative_path):
     """ Get absolute path to resource, works for dev and for PyInstaller """
@@ -23,16 +22,31 @@ def resource_path(relative_path):
 
     return os.path.join(base_path, relative_path)
 
+# Initialize logging
+logging.basicConfig(
+    filename=resource_path("app.logs"),
+    level=logging.DEBUG,
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    filemode="w"
+)
+
+# Create a logger object
+logger = logging.getLogger(__name__)
+
+current_windows_username = getpass.getuser()
+
 def clear_temp():
     temp_path = resource_path("temp")
     for i in os.listdir(temp_path):
         os.remove(os.path.join(temp_path, i))
+    logger.info(f"Cleared temp directory: {temp_path}")
 
 def convertToMP3(file_path):
     prt = file_path.split(".")
     ext = prt[-1]
     if ext != "mp3":
         os.rename(file_path, f"{prt[0]}.mp3")
+        logger.info(f"Converted {file_path} to MP3.")
 
 class App(ctk.CTk):
     def __init__(self):
@@ -40,7 +54,7 @@ class App(ctk.CTk):
         self.geometry("600x380")
         self.title("Spotify Downloader")
         self.resizable(False, False)
-        self.iconbitmap(resource_path("assets\\ico_icons\\spotify_512px.ico"))
+        self.iconbitmap(resource_path("spotify_512px.ico"))
         ctk.set_appearance_mode("dark")
 
         self.download_path = ctk.StringVar(value=f"C:/Users/{current_windows_username}/Downloads")
@@ -54,6 +68,7 @@ class App(ctk.CTk):
         self.regex = r"^(https:\/\/open.spotify.com\/)(.*)$"
 
         self.create_widgets()
+        logger.info("Application started.")
 
     def create_widgets(self):
         # Title text
@@ -93,8 +108,13 @@ class App(ctk.CTk):
         self.image_label.place(x=20, y=300)
 
     def browse_path(self):
-        download_directory = filedialog.askdirectory(initialdir=self.download_path.get(), title="Select Download Directory")
-        self.download_path.set(download_directory)
+        try:
+            download_directory = filedialog.askdirectory(initialdir=self.download_path.get(), title="Select Download Directory")
+            self.download_path.set(download_directory)
+            logger.info(f"User selected download path: {download_directory}")
+        except Exception as e:
+            logger.error(f"Error browsing path: {e}", exc_info=True)
+            self.output_var.set("Error selecting download path.")
 
     def download(self):
         if self.thread_running:
@@ -107,10 +127,17 @@ class App(ctk.CTk):
         link = self.url_var.get()
         if not re.search(self.regex, link):
             self.output_var.set("Not a valid Spotify link.")
+            logger.warning(f"Invalid Spotify link: {link}")
             self.reset_ui()
             return
 
-        track_type, track_id = link.split("/")[-2:]
+        try:
+            track_type, track_id = link.split("/")[-2:]
+        except ValueError as e:
+            logger.error(f"Error parsing Spotify link: {e}", exc_info=True)
+            self.output_var.set("Error parsing Spotify link.")
+            self.reset_ui()
+            return
 
         if track_type == "track":
             self.start_download_track_thread(track_type, track_id)
@@ -135,6 +162,7 @@ class App(ctk.CTk):
             self.progressbar.set(progress / 100)
             self.progress_var.set(f"{int(progress)} %")
             self.update()
+            logger.info(f"Progress updated: {int(progress)} %")
 
     def download_track(self, track_type, track_id):
         try:
@@ -148,6 +176,7 @@ class App(ctk.CTk):
             self.download_thumbnail(thumbnail_url)
 
             self.output_var.set(f"Downloading : {name} {artists}")
+            logger.info(f"Starting download: {name} by {artists}")
 
             query = pytube.Search(f"{name} {artists}")
             yt = query.results[0]
@@ -161,22 +190,22 @@ class App(ctk.CTk):
                         stream = audio_streams[quality][0]
                         song_path = stream.download(output_path=self.download_path.get())
                         convertToMP3(song_path)
+                        logger.info(f"Downloaded {name} by {artists} at {quality}.")
                         break
                     except Exception as e:
-                        print(e)
+                        logger.error(f"Error downloading {name} at {quality}: {e}", exc_info=True)
                         continue
 
             self.output_var.set(f"Downloaded : {name} {artists}")
 
         except Exception as e:
-            print(f"Error downloading track: {e}")
+            logger.error(f"Error downloading track: {e}", exc_info=True)
             self.output_var.set("Error downloading track")
 
         finally:
             self.processed_items += 1
             self.update_progress()
             self.reset_ui()
-            self.output_var.set("")
 
     def start_download_track_thread(self, track_type, track_id):
         track_thread = threading.Thread(target=self.download_track, args=(track_type, track_id))
@@ -199,6 +228,7 @@ class App(ctk.CTk):
                 try:
                     query = pytube.Search(f"{track['track_name']} {track['artists']}")
                     self.output_var.set(f"Downloading : {track['track_name']} {track['artists']}")
+                    logger.info(f"Downloading track: {track['track_name']} by {track['artists']}")
 
                     yt = query.results[0]
 
@@ -211,21 +241,22 @@ class App(ctk.CTk):
                                 stream = audio_streams[quality][0]
                                 song_path = stream.download(output_path=os.path.join(self.download_path.get(), album_name))
                                 convertToMP3(song_path)
+                                logger.info(f"Downloaded {track['track_name']} by {track['artists']} at {quality}.")
                                 break
                             except Exception as e:
-                                print(e)
+                                logger.error(f"Error downloading {track['track_name']} at {quality}: {e}", exc_info=True)
                                 continue
                     self.processed_items += 1
                     self.update_progress()
                 except Exception as e:
-                    print(f"Error downloading {track['track_name']}: {e}")
+                    logger.error(f"Error downloading {track['track_name']}: {e}", exc_info=True)
                     self.output_var.set(f"Error downloading {track['track_name']}: {e}")
                     continue
 
             self.output_var.set("")
 
         except Exception as e:
-            print(f"Error downloading album: {e}")
+            logger.error(f"Error downloading album: {e}", exc_info=True)
             self.output_var.set("Error downloading album")
 
         finally:
@@ -248,9 +279,10 @@ class App(ctk.CTk):
                 try:
                     thumbnail_url = track["images"][-1]["url"]
                     self.download_thumbnail(thumbnail_url)
-                    
+
                     query = pytube.Search(f"{track['track_name']} {track['artists']}")
                     self.output_var.set(f"Downloading : {track['track_name']} {track['artists']}")
+                    logger.info(f"Downloading track: {track['track_name']} by {track['artists']}")
 
                     yt = query.results[0]
 
@@ -263,21 +295,22 @@ class App(ctk.CTk):
                                 stream = audio_streams[quality][0]
                                 song_path = stream.download(output_path=os.path.join(self.download_path.get(), f"{playlist_name}"))
                                 convertToMP3(song_path)
+                                logger.info(f"Downloaded {track['track_name']} by {track['artists']} at {quality}.")
                                 break
                             except Exception as e:
-                                print(e)
+                                logger.error(f"Error downloading {track['track_name']} at {quality}: {e}", exc_info=True)
                                 continue
                     self.processed_items += 1
                     self.update_progress()
                 except Exception as e:
-                    print(f"Error downloading {track['track_name']}: {e}")
+                    logger.error(f"Error downloading {track['track_name']}: {e}", exc_info=True)
                     self.output_var.set(f"Error downloading {track['track_name']}: {e}")
                     continue
 
             self.output_var.set("")
 
         except Exception as e:
-            print(f"Error downloading playlist: {e}")
+            logger.error(f"Error downloading playlist: {e}", exc_info=True)
             self.output_var.set("Error downloading playlist")
 
         finally:
@@ -303,15 +336,21 @@ class App(ctk.CTk):
         current_time = datetime.now()
         time_str = current_time.strftime("%Y%m%d%H%M%S")
 
-        response = requests.get(image_url)
-        download_path = resource_path(os.path.join("temp", f"{time_str}.png"))
+        try:
+            response = requests.get(image_url)
+            download_path = resource_path(os.path.join("temp", f"{time_str}.png"))
 
-        if response.status_code == 200:
-            image = Image.open(BytesIO(response.content))
-            image.save(download_path)
-            my_image = ctk.CTkImage(light_image=Image.open(download_path),dark_image=Image.open(download_path),size=(64, 64))
-            self.image_label.configure(image=my_image)
-        else:
+            if response.status_code == 200:
+                image = Image.open(BytesIO(response.content))
+                image.save(download_path)
+                my_image = ctk.CTkImage(light_image=Image.open(download_path),dark_image=Image.open(download_path),size=(64, 64))
+                self.image_label.configure(image=my_image)
+                logger.info(f"Downloaded and displayed thumbnail from {image_url}.")
+            else:
+                self.image_label.configure(image=None)
+                logger.warning(f"Failed to download thumbnail from {image_url}. Status code: {response.status_code}")
+        except Exception as e:
+            logger.error(f"Error downloading thumbnail: {e}", exc_info=True)
             self.image_label.configure(image=None)
 
 if __name__ == "__main__":
