@@ -1,4 +1,7 @@
 *.txt
+*.logs
+*.exe
+*.ico
 
 test.py
 
