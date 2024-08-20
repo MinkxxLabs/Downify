@@ -22,6 +22,10 @@ def resource_path(relative_path):
 
     return os.path.join(base_path, relative_path)
 
+def create_dir(path):
+    if not os.path.exists(path):
+        os.mkdir(path)
+
 # Initialize logging
 logging.basicConfig(
     filename=resource_path("app.logs"),
@@ -336,6 +340,7 @@ class App(ctk.CTk):
         current_time = datetime.now()
         time_str = current_time.strftime("%Y%m%d%H%M%S")
 
+        create_dir(resource_path("temp"))
         try:
             response = requests.get(image_url)
             download_path = resource_path(os.path.join("temp", f"{time_str}.png"))
