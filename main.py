@@ -54,9 +54,10 @@ def convertToMP3(file_path):
         logger.info(f"Converted {file_path} to MP3.")
 
 def init_settings(path):
+    data = {"download_path":"", "theme":""}
     if not os.path.exists(path):
         with open(path, 'w') as f:
-            json.dump({}, f)
+            json.dump(data, f)
 
 def load_settings():
     file = "settings.json"
@@ -80,7 +81,11 @@ class App(ctk.CTk):
         self.title("Spotify Downloader")
         self.resizable(False, False)
         self.iconbitmap(resource_path("spotify_512px.ico"))
-        ctk.set_appearance_mode("dark")
+        if load_settings()["theme"] == "":
+            save_settings("theme", "system")
+        
+        ctk.set_appearance_mode(load_settings()["theme"])
+        # ctk.set_default_color_theme(resource_path("themes\\DaynNight.json"))
 
         if load_settings()["download_path"] == "":
             save_settings("download_path", f"C:/Users/{current_windows_username}/Downloads")
@@ -99,6 +104,10 @@ class App(ctk.CTk):
         logger.info("Application started.")
 
     def create_widgets(self):
+        # theme 
+        thememenu = ctk.CTkOptionMenu(self, width=20 ,values=["system", "light", "dark"],command=self.set_theme)
+        thememenu.set(load_settings()["theme"])
+        thememenu.place(x=510, y=10)
         # Title text
         title_label = ctk.CTkLabel(self, text="Spotify Downloader", fg_color="transparent", font=("Inter", 30))
         title_label.place(x=170, y=20)
@@ -134,6 +143,10 @@ class App(ctk.CTk):
 
         self.image_label = ctk.CTkLabel(self, text="")
         self.image_label.place(x=20, y=300)
+
+    def set_theme(self, choice):
+        save_settings("theme", choice)
+        ctk.set_appearance_mode(load_settings()["theme"])
 
     def browse_path(self):
         try:
