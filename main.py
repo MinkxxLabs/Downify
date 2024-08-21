@@ -5,6 +5,7 @@ import threading
 import requests
 import re
 import logging
+import json
 from datetime import datetime
 from io import BytesIO
 from PIL import Image
@@ -22,10 +23,6 @@ def resource_path(relative_path):
 
     return os.path.join(base_path, relative_path)
 
-def create_dir(path):
-    if not os.path.exists(path):
-        os.mkdir(path)
-
 # Initialize logging
 logging.basicConfig(
     filename=resource_path("app.logs"),
@@ -38,6 +35,10 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 current_windows_username = getpass.getuser()
+
+def create_dir(path):
+    if not os.path.exists(path):
+        os.mkdir(path)
 
 def clear_temp():
     temp_path = resource_path("temp")
@@ -52,6 +53,26 @@ def convertToMP3(file_path):
         os.rename(file_path, f"{prt[0]}.mp3")
         logger.info(f"Converted {file_path} to MP3.")
 
+def init_settings(path):
+    if not os.path.exists(path):
+        with open(path, 'w') as f:
+            json.dump({}, f)
+
+def load_settings():
+    file = "settings.json"
+    init_settings(file)
+    with open(file, "r") as f:
+        data = json.load(f)
+    return data
+
+def save_settings(key, value):
+    file = "settings.json"
+    data = load_settings()
+    data[key] = value
+    with open(file, "w") as f:
+        json.dump(data, f)
+
+
 class App(ctk.CTk):
     def __init__(self):
         super().__init__()
@@ -61,7 +82,10 @@ class App(ctk.CTk):
         self.iconbitmap(resource_path("spotify_512px.ico"))
         ctk.set_appearance_mode("dark")
 
-        self.download_path = ctk.StringVar(value=f"C:/Users/{current_windows_username}/Downloads")
+        if load_settings()["download_path"] == "":
+            save_settings("download_path", f"C:/Users/{current_windows_username}/Downloads")
+
+        self.download_path = ctk.StringVar(value=load_settings()["download_path"])
         self.output_var = ctk.StringVar()
         self.progress_var = ctk.StringVar(value="0 %")
         self.url_var = ctk.StringVar()
@@ -115,6 +139,7 @@ class App(ctk.CTk):
         try:
             download_directory = filedialog.askdirectory(initialdir=self.download_path.get(), title="Select Download Directory")
             self.download_path.set(download_directory)
+            save_settings("download_path", download_directory)
             logger.info(f"User selected download path: {download_directory}")
         except Exception as e:
             logger.error(f"Error browsing path: {e}", exc_info=True)
