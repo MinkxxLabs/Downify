@@ -2,8 +2,8 @@
 *.logs
 *.exe
 *.ico
-*.json
 
+settings.json
 test.py
 
 temp/
