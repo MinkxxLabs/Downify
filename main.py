@@ -28,7 +28,7 @@ logging.basicConfig(
     filename=resource_path("app.logs"),
     level=logging.DEBUG,
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-    filemode="w"
+    filemode="a"
 )
 
 # Create a logger object
