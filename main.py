@@ -7,7 +7,6 @@ import re
 import logging
 import json
 import time
-import subprocess
 import tkinter as tk
 from tkinter import messagebox
 from datetime import datetime
@@ -18,6 +17,8 @@ import pytube
 import git
 import customtkinter as ctk
 from customtkinter import filedialog
+
+__VERSION__ = "0.1.0"
 
 def resource_path(relative_path):
     """ Get absolute path to resource, works for dev and for PyInstaller """
@@ -60,7 +61,7 @@ def convertToMP3(file_path):
         logger.info(f"Converted {file_path} to MP3.")
 
 def init_settings(path):
-    data = {"download_path":"", "appearence":"", "theme":""}
+    data = {"download_path":"", "appearence":"", "theme":"", "version":__VERSION__}
     if not os.path.exists(path):
         with open(path, 'w') as f:
             json.dump(data, f)
@@ -85,30 +86,30 @@ def restart_app():
         python = sys.executable
         os.execl(python, python, *sys.argv)
 
-def check_for_updates(repo_dir, origin="origin", branch="master"):
-    repo = git.Repo(repo_dir)
-    current_commit = repo.head.commit.hexsha
-    repo.remotes[origin].fetch()  # Fetch updates
-    latest_commit = repo.git.rev_parse(f'{origin}/{branch}')
+# def check_for_updates(repo_dir, origin="origin", branch="dev"):
+#     repo = git.Repo(repo_dir)
+#     current_commit = repo.head.commit.hexsha
+#     repo.remotes[origin].fetch()  # Fetch updates
+#     latest_commit = repo.git.rev_parse(f'{origin}/{branch}')
 
-    if current_commit != latest_commit:
-        logger.info("Update available!")
-        repo.git.reset('--hard', f'{origin}/{branch}')
-        restart_app()
-    else:
-        logger.warn("No update needed.")
+#     if current_commit != latest_commit:
+#         logger.info("Update available!")
+#         repo.git.reset('--hard', f'{origin}/{branch}')
+#         restart_app()
+#     else:
+#         logger.warn("No update needed.")
 
-def auto_update_checker(repo_dir, interval=60):
-    while True:
-        check_for_updates(repo_dir)
-        time.sleep(interval)
+# def auto_update_checker(repo_dir, interval=60):
+#     while True:
+#         check_for_updates(repo_dir)
+#         time.sleep(interval)
 
-def update_app():
-    repo_dir = os.path.dirname(os.path.abspath(__file__))  # Repo directory path
+# def update_app():
+#     repo_dir = os.path.dirname(os.path.abspath(__file__))  # Repo directory path
     
-    # Start the auto-update checker in a separate thread
-    update_thread = threading.Thread(target=auto_update_checker, args=(repo_dir,), daemon=True)
-    update_thread.start()
+#     # Start the auto-update checker in a separate thread
+#     update_thread = threading.Thread(target=auto_update_checker, args=(repo_dir,), daemon=True)
+#     update_thread.start()
 
 
 class App(ctk.CTk):
@@ -159,9 +160,8 @@ class App(ctk.CTk):
         
         # File menu
         file_menu = tk.Menu(menu_bar, tearoff=0)
-        file_menu.add_command(label="Open", command=self.browse_path)
-        file_menu.add_command(label="Save", command=self.save_file)
-        file_menu.add_command(label="Paste", command=self.paste_path)
+        file_menu.add_command(label="Open path", command=self.browse_path)
+        file_menu.add_command(label="Paste clipboard", command=self.paste_path)
         file_menu.add_separator()
         file_menu.add_command(label="Exit", command=self.quit)
         menu_bar.add_cascade(label="File", menu=file_menu)
@@ -179,7 +179,7 @@ class App(ctk.CTk):
 
         settings_menu.add_cascade(label="Appearance", menu=appearance_menu)
         settings_menu.add_cascade(label="Theme", menu=theme_menu)
-        settings_menu.add_command(label="Check for Updates", command=update_app)
+        # settings_menu.add_command(label="Check for Updates", command=update_app)
         settings_menu.add_command(label="Restart", command=restart_app)
         menu_bar.add_cascade(label="Settings", menu=settings_menu)
 
@@ -217,7 +217,7 @@ class App(ctk.CTk):
 
         # Output label
         self.output_label = ctk.CTkLabel(self, text="test", fg_color="transparent", font=("Inter", 12), textvariable=self.output_var)
-        self.output_label.place(x=100, y=250)
+        self.output_label.place(x=136, y=250)
 
         # Image label
         self.image_label = ctk.CTkLabel(self, text="")
@@ -226,11 +226,11 @@ class App(ctk.CTk):
         # Progress bar
         self.progressbar = ctk.CTkProgressBar(self, width=300, height=10)
         self.progressbar.set(0)
-        self.progressbar.place(x=100, y=350)
+        # self.progressbar.place(x=150, y=300)
 
         # Progress label
         self.progress_label = ctk.CTkLabel(self, text="%", fg_color="transparent", font=("Inter", 14), textvariable=self.progress_var)
-        self.progress_label.place(x=500, y=338)
+        # self.progress_label.place(x=460, y=290)
 
     def set_appearence(self, choice):
         save_settings("appearence", choice)
@@ -254,12 +254,8 @@ class App(ctk.CTk):
             logger.error(f"Error browsing path: {e}", exc_info=True)
             self.output_var.set("Error selecting download path.")
 
-    def save_file(self):
-        # Logic for saving the current state or file
-        pass
-
     def show_about(self):
-        messagebox.showinfo("About Us", "Spotify Downloader v1.0\nCreated by Monsur\nVisit us at https://minkxx.is-a.dev")
+        messagebox.showinfo("About Us", f"Spotify Downloader {load_settings()["version"]}\nCreated by Monsur\nVisit us at https://minkxx.is-a.dev")
 
     def paste_path(self):
         try:
@@ -276,8 +272,8 @@ class App(ctk.CTk):
             return
 
         self.thread_running = True
-        # self.progressbar.place(x=70, y=250)
-        # self.progress_label.place(x=500, y=238)
+        self.progressbar.place(x=150, y=300)
+        self.progress_label.place(x=460, y=290)
         self.url_entry.configure(state="disabled")
         self.download_btn.configure(state="disabled")
 
@@ -309,8 +305,8 @@ class App(ctk.CTk):
         self.url_var.set("")
         self.url_entry.configure(state="normal")
         self.download_btn.configure(state="normal")
-        # self.progressbar.place_forget()
-        # self.progress_label.place_forget()
+        self.progressbar.place_forget()
+        self.progress_label.place_forget()
         self.image_label.configure(image=None)
         self.thread_running = False
         clear_temp()
@@ -331,7 +327,7 @@ class App(ctk.CTk):
             name = data["track_name"]
             artists = data["artists"]
 
-            thumbnail_url = data["images"][-1]["url"]
+            thumbnail_url = data["images"][1]["url"]
             self.download_thumbnail(thumbnail_url)
 
             self.output_var.set(f"Downloading : {name} {artists}")
@@ -356,6 +352,8 @@ class App(ctk.CTk):
                         continue
 
             self.output_var.set(f"Downloaded : {name} {artists}")
+            time.sleep(1)
+            self.output_var.set("")
 
         except Exception as e:
             logger.error(f"Error downloading track: {e}", exc_info=True)
@@ -380,7 +378,7 @@ class App(ctk.CTk):
             self.total_items = len(tracks)
             self.processed_items = 0
 
-            thumbnail_url = data["images"][-1]["url"]
+            thumbnail_url = data["images"][1]["url"]
             self.download_thumbnail(thumbnail_url)
 
             for track in tracks:
@@ -436,7 +434,7 @@ class App(ctk.CTk):
 
             for track in tracks:
                 try:
-                    thumbnail_url = track["images"][-1]["url"]
+                    thumbnail_url = track["images"][1]["url"]
                     self.download_thumbnail(thumbnail_url)
 
                     query = pytube.Search(f"{track['track_name']} {track['artists']}")
@@ -503,7 +501,7 @@ class App(ctk.CTk):
             if response.status_code == 200:
                 image = Image.open(BytesIO(response.content))
                 image.save(download_path)
-                my_image = ctk.CTkImage(light_image=Image.open(download_path),dark_image=Image.open(download_path),size=(64, 64))
+                my_image = ctk.CTkImage(light_image=Image.open(download_path),dark_image=Image.open(download_path),size=(100, 100))
                 self.image_label.configure(image=my_image)
                 logger.info(f"Downloaded and displayed thumbnail from {image_url}.")
             else:
