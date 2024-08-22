@@ -6,6 +6,7 @@ import requests
 import re
 import logging
 import json
+import time
 from datetime import datetime
 from io import BytesIO
 from PIL import Image
@@ -146,6 +147,7 @@ class App(ctk.CTk):
 
         settings_menu.add_cascade(label="Appearance", menu=appearance_menu)
         settings_menu.add_cascade(label="Theme", menu=theme_menu)
+        settings_menu.add_command(label="Restart", command=self.restart_app)
         menu_bar.add_cascade(label="Settings", menu=settings_menu)
 
         # About Us menu
@@ -197,14 +199,22 @@ class App(ctk.CTk):
         self.progress_label = ctk.CTkLabel(self, text="%", fg_color="transparent", font=("Inter", 14), textvariable=self.progress_var)
         self.progress_label.place(x=500, y=338)
 
+    def restart_app(self):
+        logger.info("Restarting application...")
+        python = sys.executable
+        os.execl(python, python, *sys.argv)
 
     def set_appearence(self, choice):
         save_settings("appearence", choice)
         ctk.set_appearance_mode(load_settings()["appearence"])
+        logger.info(f"Appearence changed to: {choice}")
 
     def set_theme(self, choice):
         save_settings("theme", choice)
         ctk.set_default_color_theme(self.themes_path[str(load_settings()["theme"])])
+        logger.info(f"Theme changed to: {choice}")
+        time.sleep(1)
+        self.restart_app()
 
     def browse_path(self):
         try:
