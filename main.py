@@ -14,7 +14,7 @@ from io import BytesIO
 from PIL import Image
 
 import pytube
-import git
+# import git
 import customtkinter as ctk
 from customtkinter import filedialog
 
@@ -126,7 +126,7 @@ class App(ctk.CTk):
 
         self.themes = []
         self.themes_path = {}
-        themes_dir = resource_path("themes")
+        themes_dir = resource_path("assets\\themes")
         for i in os.listdir(themes_dir):
             name = i.split(".")[0]
             path = os.path.join(themes_dir, i)
