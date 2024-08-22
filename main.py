@@ -10,8 +10,6 @@ import time
 import subprocess
 import tkinter as tk
 from tkinter import messagebox
-=======
->>>>>>> 03af8811806cf5f87f2164ab07e47cb6088112e9
 from datetime import datetime
 from io import BytesIO
 from PIL import Image
