@@ -13,6 +13,8 @@ from PIL import Image
 import pytube
 import customtkinter as ctk
 from customtkinter import filedialog
+import tkinter as tk
+from tkinter import messagebox
 
 def resource_path(relative_path):
     """ Get absolute path to resource, works for dev and for PyInstaller """
@@ -119,15 +121,41 @@ class App(ctk.CTk):
         logger.info("Application started.")
 
     def create_widgets(self):
-        # apperance 
-        apperancemenu = ctk.CTkOptionMenu(self, width=20, values=["system", "light", "dark"], command=self.set_appearence)
-        apperancemenu.set(load_settings()["appearence"])
-        apperancemenu.place(x=480, y=25)
+        # Create the menu bar using tkinter
+        menu_bar = tk.Menu(self)
+        
+        # File menu
+        file_menu = tk.Menu(menu_bar, tearoff=0)
+        file_menu.add_command(label="Open", command=self.browse_path)
+        file_menu.add_command(label="Save", command=self.save_file)
+        file_menu.add_command(label="Paste", command=self.paste_path)
+        file_menu.add_separator()
+        file_menu.add_command(label="Exit", command=self.quit)
+        menu_bar.add_cascade(label="File", menu=file_menu)
 
-        # theme
-        self.thememenu = ctk.CTkOptionMenu(self, width=20, values=self.themes, command=self.set_theme)
-        self.thememenu.set(load_settings()["theme"])
-        self.thememenu.place(x=480, y=55)
+        # Settings menu
+        settings_menu = tk.Menu(menu_bar, tearoff=0)
+        appearance_menu = tk.Menu(settings_menu, tearoff=0)
+        appearance_menu.add_radiobutton(label="System", command=lambda: self.set_appearence("system"))
+        appearance_menu.add_radiobutton(label="Light", command=lambda: self.set_appearence("light"))
+        appearance_menu.add_radiobutton(label="Dark", command=lambda: self.set_appearence("dark"))
+        
+        theme_menu = tk.Menu(settings_menu, tearoff=0)
+        for theme in self.themes:
+            theme_menu.add_radiobutton(label=theme, command=lambda t=theme: self.set_theme(t))
+
+        settings_menu.add_cascade(label="Appearance", menu=appearance_menu)
+        settings_menu.add_cascade(label="Theme", menu=theme_menu)
+        menu_bar.add_cascade(label="Settings", menu=settings_menu)
+
+        # About Us menu
+        about_menu = tk.Menu(menu_bar, tearoff=0)
+        about_menu.add_command(label="About Us", command=self.show_about)
+        menu_bar.add_cascade(label="About Us", menu=about_menu)
+
+        # Configure the menu bar
+        self.config(menu=menu_bar)
+
         # Title text
         # title_label = ctk.CTkLabel(self, text="Spotify Downloader", fg_color="transparent", font=("Inter", 30))
         # title_label.place(x=170, y=20)
@@ -152,21 +180,23 @@ class App(ctk.CTk):
         self.download_btn = ctk.CTkButton(self, text="Download", command=self.download, width=100)
         self.download_btn.place(x=250, y=190)
 
+        # Output label
+        self.output_label = ctk.CTkLabel(self, text="test", fg_color="transparent", font=("Inter", 12), textvariable=self.output_var)
+        self.output_label.place(x=100, y=250)
+
+        # Image label
+        self.image_label = ctk.CTkLabel(self, text="")
+        self.image_label.place(x=20, y=250)
+
         # Progress bar
-        self.progressbar = ctk.CTkProgressBar(self, width=400, height=10)
+        self.progressbar = ctk.CTkProgressBar(self, width=300, height=10)
         self.progressbar.set(0)
-        self.progressbar.place(x=70, y=250)
+        self.progressbar.place(x=100, y=350)
 
         # Progress label
         self.progress_label = ctk.CTkLabel(self, text="%", fg_color="transparent", font=("Inter", 14), textvariable=self.progress_var)
-        self.progress_label.place(x=500, y=238)
+        self.progress_label.place(x=500, y=338)
 
-        # Output label
-        self.output_label = ctk.CTkLabel(self, text="test", fg_color="transparent", font=("Inter", 12), textvariable=self.output_var)
-        self.output_label.place(x=100, y=300)
-
-        self.image_label = ctk.CTkLabel(self, text="")
-        self.image_label.place(x=20, y=300)
 
     def set_appearence(self, choice):
         save_settings("appearence", choice)
@@ -186,14 +216,30 @@ class App(ctk.CTk):
             logger.error(f"Error browsing path: {e}", exc_info=True)
             self.output_var.set("Error selecting download path.")
 
-    def paste_path(self):
+    def save_file(self):
+        # Logic for saving the current state or file
         pass
 
+    def show_about(self):
+        messagebox.showinfo("About Us", "Spotify Downloader v1.0\nCreated by Monsur\nVisit us at https://minkxx.is-a.dev")
+
+    def paste_path(self):
+        try:
+            clipboard_content = self.clipboard_get()
+            self.url_var.set(clipboard_content)
+            logger.info(f"Pasted URL: {clipboard_content}")
+        except Exception as e:
+            logger.error(f"Error pasting from clipboard: {e}", exc_info=True)
+            self.output_var.set("Error pasting clipboard content.")
+
     def download(self):
+        create_dir(resource_path("temp"))
         if self.thread_running:
             return
 
         self.thread_running = True
+        # self.progressbar.place(x=70, y=250)
+        # self.progress_label.place(x=500, y=238)
         self.url_entry.configure(state="disabled")
         self.download_btn.configure(state="disabled")
 
@@ -225,6 +271,8 @@ class App(ctk.CTk):
         self.url_var.set("")
         self.url_entry.configure(state="normal")
         self.download_btn.configure(state="normal")
+        # self.progressbar.place_forget()
+        # self.progress_label.place_forget()
         self.image_label.configure(image=None)
         self.thread_running = False
         clear_temp()
