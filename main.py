@@ -39,6 +39,7 @@ current_windows_username = getpass.getuser()
 def create_dir(path):
     if not os.path.exists(path):
         os.mkdir(path)
+        logger.info(f"Created: {path}")
 
 def clear_temp():
     temp_path = resource_path("temp")
@@ -54,10 +55,11 @@ def convertToMP3(file_path):
         logger.info(f"Converted {file_path} to MP3.")
 
 def init_settings(path):
-    data = {"download_path":"", "theme":""}
+    data = {"download_path":"", "appearence":"", "theme":""}
     if not os.path.exists(path):
         with open(path, 'w') as f:
             json.dump(data, f)
+        logger.info(f"Created: 'settings.json'")
 
 def load_settings():
     file = "settings.json"
@@ -80,12 +82,25 @@ class App(ctk.CTk):
         self.geometry("600x380")
         self.title("Spotify Downloader")
         self.resizable(False, False)
-        self.iconbitmap(resource_path("spotify_512px.ico"))
-        if load_settings()["theme"] == "":
-            save_settings("theme", "system")
+        self.iconbitmap(resource_path("assets\\ico_icons\\spotify_512px.ico"))
+        if load_settings()["appearence"] == "":
+            save_settings("appearence", "system")
         
-        ctk.set_appearance_mode(load_settings()["theme"])
-        # ctk.set_default_color_theme(resource_path("themes\\DaynNight.json"))
+        ctk.set_appearance_mode(load_settings()["appearence"])
+
+        self.themes = []
+        self.themes_path = {}
+        themes_dir = resource_path("themes")
+        for i in os.listdir(themes_dir):
+            name = i.split(".")[0]
+            path = os.path.join(themes_dir, i)
+            self.themes.append(name)
+            self.themes_path[name] = path
+
+        if load_settings()["theme"] == "":
+            save_settings("theme", "Blue")
+
+        ctk.set_default_color_theme(self.themes_path[str(load_settings()["theme"])])
 
         if load_settings()["download_path"] == "":
             save_settings("download_path", f"C:/Users/{current_windows_username}/Downloads")
@@ -104,20 +119,29 @@ class App(ctk.CTk):
         logger.info("Application started.")
 
     def create_widgets(self):
-        # theme 
-        thememenu = ctk.CTkOptionMenu(self, width=20 ,values=["system", "light", "dark"],command=self.set_theme)
-        thememenu.set(load_settings()["theme"])
-        thememenu.place(x=510, y=10)
+        # apperance 
+        apperancemenu = ctk.CTkOptionMenu(self, width=20, values=["system", "light", "dark"], command=self.set_appearence)
+        apperancemenu.set(load_settings()["appearence"])
+        apperancemenu.place(x=480, y=25)
+
+        # theme
+        self.thememenu = ctk.CTkOptionMenu(self, width=20, values=self.themes, command=self.set_theme)
+        self.thememenu.set(load_settings()["theme"])
+        self.thememenu.place(x=480, y=55)
         # Title text
-        title_label = ctk.CTkLabel(self, text="Spotify Downloader", fg_color="transparent", font=("Inter", 30))
-        title_label.place(x=170, y=20)
+        # title_label = ctk.CTkLabel(self, text="Spotify Downloader", fg_color="transparent", font=("Inter", 30))
+        # title_label.place(x=170, y=20)
 
         # URL entry
-        self.url_entry = ctk.CTkEntry(self, placeholder_text="Enter URL to download", font=("Inter", 12), width=500, textvariable=self.url_var)
+        self.url_entry = ctk.CTkEntry(self, placeholder_text="Enter URL to download", font=("Inter", 12), width=425, textvariable=self.url_var)
         self.url_entry.place(x=50, y=90)
 
+        # Paste button
+        self.dir_browse_btn = ctk.CTkButton(self, text="Paste", command=self.paste_path, width=70)
+        self.dir_browse_btn.place(x=480, y=90)
+
         # Download path entry
-        self.dir_path_entry = ctk.CTkEntry(self, placeholder_text="Download path", font=("Inter", 12), width=400, textvariable=self.download_path)
+        self.dir_path_entry = ctk.CTkEntry(self, placeholder_text="Download path", font=("Inter", 12), width=425, textvariable=self.download_path)
         self.dir_path_entry.place(x=50, y=140)
 
         # Browse button
@@ -144,9 +168,13 @@ class App(ctk.CTk):
         self.image_label = ctk.CTkLabel(self, text="")
         self.image_label.place(x=20, y=300)
 
+    def set_appearence(self, choice):
+        save_settings("appearence", choice)
+        ctk.set_appearance_mode(load_settings()["appearence"])
+
     def set_theme(self, choice):
         save_settings("theme", choice)
-        ctk.set_appearance_mode(load_settings()["theme"])
+        ctk.set_default_color_theme(self.themes_path[str(load_settings()["theme"])])
 
     def browse_path(self):
         try:
@@ -157,6 +185,9 @@ class App(ctk.CTk):
         except Exception as e:
             logger.error(f"Error browsing path: {e}", exc_info=True)
             self.output_var.set("Error selecting download path.")
+
+    def paste_path(self):
+        pass
 
     def download(self):
         if self.thread_running:
