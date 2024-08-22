@@ -6,11 +6,16 @@ import requests
 import re
 import logging
 import json
+import time
+import subprocess
+import tkinter as tk
+from tkinter import messagebox
 from datetime import datetime
 from io import BytesIO
 from PIL import Image
 
 import pytube
+import git
 import customtkinter as ctk
 from customtkinter import filedialog
 
@@ -39,6 +44,7 @@ current_windows_username = getpass.getuser()
 def create_dir(path):
     if not os.path.exists(path):
         os.mkdir(path)
+        logger.info(f"Created: {path}")
 
 def clear_temp():
     temp_path = resource_path("temp")
@@ -54,10 +60,11 @@ def convertToMP3(file_path):
         logger.info(f"Converted {file_path} to MP3.")
 
 def init_settings(path):
-    data = {"download_path":"", "theme":""}
+    data = {"download_path":"", "appearence":"", "theme":""}
     if not os.path.exists(path):
         with open(path, 'w') as f:
             json.dump(data, f)
+        logger.info(f"Created: 'settings.json'")
 
 def load_settings():
     file = "settings.json"
@@ -73,6 +80,36 @@ def save_settings(key, value):
     with open(file, "w") as f:
         json.dump(data, f)
 
+def restart_app():
+        logger.info("Restarting application...")
+        python = sys.executable
+        os.execl(python, python, *sys.argv)
+
+def check_for_updates(repo_dir, origin="origin", branch="master"):
+    repo = git.Repo(repo_dir)
+    current_commit = repo.head.commit.hexsha
+    repo.remotes[origin].fetch()  # Fetch updates
+    latest_commit = repo.git.rev_parse(f'{origin}/{branch}')
+
+    if current_commit != latest_commit:
+        logger.info("Update available!")
+        repo.git.reset('--hard', f'{origin}/{branch}')
+        restart_app()
+    else:
+        logger.warn("No update needed.")
+
+def auto_update_checker(repo_dir, interval=60):
+    while True:
+        check_for_updates(repo_dir)
+        time.sleep(interval)
+
+def update_app():
+    repo_dir = os.path.dirname(os.path.abspath(__file__))  # Repo directory path
+    
+    # Start the auto-update checker in a separate thread
+    update_thread = threading.Thread(target=auto_update_checker, args=(repo_dir,), daemon=True)
+    update_thread.start()
+
 
 class App(ctk.CTk):
     def __init__(self):
@@ -80,12 +117,25 @@ class App(ctk.CTk):
         self.geometry("600x380")
         self.title("Spotify Downloader")
         self.resizable(False, False)
-        self.iconbitmap(resource_path("spotify_512px.ico"))
-        if load_settings()["theme"] == "":
-            save_settings("theme", "system")
+        self.iconbitmap(resource_path("assets\\ico_icons\\spotify_512px.ico"))
+        if load_settings()["appearence"] == "":
+            save_settings("appearence", "system")
         
-        ctk.set_appearance_mode(load_settings()["theme"])
-        # ctk.set_default_color_theme(resource_path("themes\\DaynNight.json"))
+        ctk.set_appearance_mode(load_settings()["appearence"])
+
+        self.themes = []
+        self.themes_path = {}
+        themes_dir = resource_path("themes")
+        for i in os.listdir(themes_dir):
+            name = i.split(".")[0]
+            path = os.path.join(themes_dir, i)
+            self.themes.append(name)
+            self.themes_path[name] = path
+
+        if load_settings()["theme"] == "":
+            save_settings("theme", "Blue")
+
+        ctk.set_default_color_theme(self.themes_path[str(load_settings()["theme"])])
 
         if load_settings()["download_path"] == "":
             save_settings("download_path", f"C:/Users/{current_windows_username}/Downloads")
@@ -104,20 +154,57 @@ class App(ctk.CTk):
         logger.info("Application started.")
 
     def create_widgets(self):
-        # theme 
-        thememenu = ctk.CTkOptionMenu(self, width=20 ,values=["system", "light", "dark"],command=self.set_theme)
-        thememenu.set(load_settings()["theme"])
-        thememenu.place(x=510, y=10)
+        # Create the menu bar using tkinter
+        menu_bar = tk.Menu(self)
+        
+        # File menu
+        file_menu = tk.Menu(menu_bar, tearoff=0)
+        file_menu.add_command(label="Open", command=self.browse_path)
+        file_menu.add_command(label="Save", command=self.save_file)
+        file_menu.add_command(label="Paste", command=self.paste_path)
+        file_menu.add_separator()
+        file_menu.add_command(label="Exit", command=self.quit)
+        menu_bar.add_cascade(label="File", menu=file_menu)
+
+        # Settings menu
+        settings_menu = tk.Menu(menu_bar, tearoff=0)
+        appearance_menu = tk.Menu(settings_menu, tearoff=0)
+        appearance_menu.add_radiobutton(label="System", command=lambda: self.set_appearence("system"))
+        appearance_menu.add_radiobutton(label="Light", command=lambda: self.set_appearence("light"))
+        appearance_menu.add_radiobutton(label="Dark", command=lambda: self.set_appearence("dark"))
+        
+        theme_menu = tk.Menu(settings_menu, tearoff=0)
+        for theme in self.themes:
+            theme_menu.add_radiobutton(label=theme, command=lambda t=theme: self.set_theme(t))
+
+        settings_menu.add_cascade(label="Appearance", menu=appearance_menu)
+        settings_menu.add_cascade(label="Theme", menu=theme_menu)
+        settings_menu.add_command(label="Check for Updates", command=update_app)
+        settings_menu.add_command(label="Restart", command=restart_app)
+        menu_bar.add_cascade(label="Settings", menu=settings_menu)
+
+        # About Us menu
+        about_menu = tk.Menu(menu_bar, tearoff=0)
+        about_menu.add_command(label="About Us", command=self.show_about)
+        menu_bar.add_cascade(label="About Us", menu=about_menu)
+
+        # Configure the menu bar
+        self.config(menu=menu_bar)
+
         # Title text
-        title_label = ctk.CTkLabel(self, text="Spotify Downloader", fg_color="transparent", font=("Inter", 30))
-        title_label.place(x=170, y=20)
+        # title_label = ctk.CTkLabel(self, text="Spotify Downloader", fg_color="transparent", font=("Inter", 30))
+        # title_label.place(x=170, y=20)
 
         # URL entry
-        self.url_entry = ctk.CTkEntry(self, placeholder_text="Enter URL to download", font=("Inter", 12), width=500, textvariable=self.url_var)
+        self.url_entry = ctk.CTkEntry(self, placeholder_text="Enter URL to download", font=("Inter", 12), width=425, textvariable=self.url_var)
         self.url_entry.place(x=50, y=90)
 
+        # Paste button
+        self.dir_browse_btn = ctk.CTkButton(self, text="Paste", command=self.paste_path, width=70)
+        self.dir_browse_btn.place(x=480, y=90)
+
         # Download path entry
-        self.dir_path_entry = ctk.CTkEntry(self, placeholder_text="Download path", font=("Inter", 12), width=400, textvariable=self.download_path)
+        self.dir_path_entry = ctk.CTkEntry(self, placeholder_text="Download path", font=("Inter", 12), width=425, textvariable=self.download_path)
         self.dir_path_entry.place(x=50, y=140)
 
         # Browse button
@@ -128,25 +215,34 @@ class App(ctk.CTk):
         self.download_btn = ctk.CTkButton(self, text="Download", command=self.download, width=100)
         self.download_btn.place(x=250, y=190)
 
+        # Output label
+        self.output_label = ctk.CTkLabel(self, text="test", fg_color="transparent", font=("Inter", 12), textvariable=self.output_var)
+        self.output_label.place(x=100, y=250)
+
+        # Image label
+        self.image_label = ctk.CTkLabel(self, text="")
+        self.image_label.place(x=20, y=250)
+
         # Progress bar
-        self.progressbar = ctk.CTkProgressBar(self, width=400, height=10)
+        self.progressbar = ctk.CTkProgressBar(self, width=300, height=10)
         self.progressbar.set(0)
-        self.progressbar.place(x=70, y=250)
+        self.progressbar.place(x=100, y=350)
 
         # Progress label
         self.progress_label = ctk.CTkLabel(self, text="%", fg_color="transparent", font=("Inter", 14), textvariable=self.progress_var)
-        self.progress_label.place(x=500, y=238)
+        self.progress_label.place(x=500, y=338)
 
-        # Output label
-        self.output_label = ctk.CTkLabel(self, text="test", fg_color="transparent", font=("Inter", 12), textvariable=self.output_var)
-        self.output_label.place(x=100, y=300)
-
-        self.image_label = ctk.CTkLabel(self, text="")
-        self.image_label.place(x=20, y=300)
+    def set_appearence(self, choice):
+        save_settings("appearence", choice)
+        ctk.set_appearance_mode(load_settings()["appearence"])
+        logger.info(f"Appearence changed to: {choice}")
 
     def set_theme(self, choice):
         save_settings("theme", choice)
-        ctk.set_appearance_mode(load_settings()["theme"])
+        ctk.set_default_color_theme(self.themes_path[str(load_settings()["theme"])])
+        logger.info(f"Theme changed to: {choice}")
+        time.sleep(1)
+        restart_app()
 
     def browse_path(self):
         try:
@@ -158,11 +254,30 @@ class App(ctk.CTk):
             logger.error(f"Error browsing path: {e}", exc_info=True)
             self.output_var.set("Error selecting download path.")
 
+    def save_file(self):
+        # Logic for saving the current state or file
+        pass
+
+    def show_about(self):
+        messagebox.showinfo("About Us", "Spotify Downloader v1.0\nCreated by Monsur\nVisit us at https://minkxx.is-a.dev")
+
+    def paste_path(self):
+        try:
+            clipboard_content = self.clipboard_get()
+            self.url_var.set(clipboard_content)
+            logger.info(f"Pasted URL: {clipboard_content}")
+        except Exception as e:
+            logger.error(f"Error pasting from clipboard: {e}", exc_info=True)
+            self.output_var.set("Error pasting clipboard content.")
+
     def download(self):
+        create_dir(resource_path("temp"))
         if self.thread_running:
             return
 
         self.thread_running = True
+        # self.progressbar.place(x=70, y=250)
+        # self.progress_label.place(x=500, y=238)
         self.url_entry.configure(state="disabled")
         self.download_btn.configure(state="disabled")
 
@@ -194,6 +309,8 @@ class App(ctk.CTk):
         self.url_var.set("")
         self.url_entry.configure(state="normal")
         self.download_btn.configure(state="normal")
+        # self.progressbar.place_forget()
+        # self.progress_label.place_forget()
         self.image_label.configure(image=None)
         self.thread_running = False
         clear_temp()
