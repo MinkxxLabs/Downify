@@ -1,0 +1,8 @@
+# DONE 1. Remove app title (give it a professional look)
+# DONE 2. Add tabs at top (File, Edit, About)
+# DONE 3. Hide progress bar when not downloading anything
+# DONE 5. Add paste functionality
+# DONE 7. Release the current binary to github releases
+4. Make the app updateable
+6. Update progress bar according to the completion of download thread
+8. Make the GUI better
