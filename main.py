@@ -18,7 +18,7 @@ import git
 import customtkinter as ctk
 from customtkinter import filedialog
 
-__VERSION__ = "0.1.0"
+__VERSION__ = "0.1.1"
 
 def resource_path(relative_path):
     """ Get absolute path to resource, works for dev and for PyInstaller """
@@ -205,10 +205,6 @@ class App(ctk.CTk):
         # Configure the menu bar
         self.config(menu=menu_bar)
 
-        # Title text
-        # title_label = ctk.CTkLabel(self, text="Spotify Downloader", fg_color="transparent", font=("Inter", 30))
-        # title_label.place(x=170, y=20)
-
         # URL entry
         self.url_entry = ctk.CTkEntry(self, placeholder_text="Enter URL to download", font=("Inter", 12), width=425, textvariable=self.url_var)
         self.url_entry.place(x=50, y=90)
@@ -240,11 +236,9 @@ class App(ctk.CTk):
         # Progress bar
         self.progressbar = ctk.CTkProgressBar(self, width=300, height=10)
         self.progressbar.set(0)
-        # self.progressbar.place(x=150, y=300)
 
         # Progress label
         self.progress_label = ctk.CTkLabel(self, text="%", fg_color="transparent", font=("Inter", 14), textvariable=self.progress_var)
-        # self.progress_label.place(x=460, y=290)
 
     def set_appearence(self, choice):
         save_settings("appearence", choice)
