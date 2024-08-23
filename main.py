@@ -89,7 +89,7 @@ class App(ctk.CTk):
     def __init__(self):
         super().__init__()
         self.geometry("600x380")
-        self.title("Spotify Downloader")
+        self.title("Downify")
         self.resizable(False, False)
         self.iconbitmap(resource_path("assets\\ico_icons\\spotify_512px.ico"))
         if load_settings()["appearence"] == "":
@@ -221,7 +221,7 @@ class App(ctk.CTk):
             self.output_var.set("Error selecting download path.")
 
     def show_about(self):
-        messagebox.showinfo("About Us", f"Spotify Downloader {load_settings()["version"]}\nCreated by Monsur\nVisit us at https://minkxx.is-a.dev")
+        messagebox.showinfo("About Us", f"Downify {load_settings()["version"]}\nCreated by Monsur\nVisit us at https://minkxx.is-a.dev")
 
     def paste_path(self):
         try:
