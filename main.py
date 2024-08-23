@@ -14,11 +14,10 @@ from io import BytesIO
 from PIL import Image
 
 import pytube
-import git
 import customtkinter as ctk
 from customtkinter import filedialog
 
-__VERSION__ = "0.1.0"
+__VERSION__ = "0.1.1"
 
 def resource_path(relative_path):
     """ Get absolute path to resource, works for dev and for PyInstaller """
@@ -86,32 +85,6 @@ def restart_app():
         python = sys.executable
         os.execl(python, python, *sys.argv)
 
-# def check_for_updates(repo_dir, origin="origin", branch="dev"):
-#     repo = git.Repo(repo_dir)
-#     current_commit = repo.head.commit.hexsha
-#     repo.remotes[origin].fetch()  # Fetch updates
-#     latest_commit = repo.git.rev_parse(f'{origin}/{branch}')
-
-#     if current_commit != latest_commit:
-#         logger.info("Update available!")
-#         repo.git.reset('--hard', f'{origin}/{branch}')
-#         restart_app()
-#     else:
-#         logger.warn("No update needed.")
-
-# def auto_update_checker(repo_dir, interval=60):
-#     while True:
-#         check_for_updates(repo_dir)
-#         time.sleep(interval)
-
-# def update_app():
-#     repo_dir = os.path.dirname(os.path.abspath(__file__))  # Repo directory path
-    
-#     # Start the auto-update checker in a separate thread
-#     update_thread = threading.Thread(target=auto_update_checker, args=(repo_dir,), daemon=True)
-#     update_thread.start()
-
-
 class App(ctk.CTk):
     def __init__(self):
         super().__init__()
@@ -126,7 +99,7 @@ class App(ctk.CTk):
 
         self.themes = []
         self.themes_path = {}
-        themes_dir = resource_path("themes")
+        themes_dir = resource_path("assets\\themes")
         for i in os.listdir(themes_dir):
             name = i.split(".")[0]
             path = os.path.join(themes_dir, i)
@@ -179,7 +152,6 @@ class App(ctk.CTk):
 
         settings_menu.add_cascade(label="Appearance", menu=appearance_menu)
         settings_menu.add_cascade(label="Theme", menu=theme_menu)
-        # settings_menu.add_command(label="Check for Updates", command=update_app)
         settings_menu.add_command(label="Restart", command=restart_app)
         menu_bar.add_cascade(label="Settings", menu=settings_menu)
 
@@ -190,10 +162,6 @@ class App(ctk.CTk):
 
         # Configure the menu bar
         self.config(menu=menu_bar)
-
-        # Title text
-        # title_label = ctk.CTkLabel(self, text="Spotify Downloader", fg_color="transparent", font=("Inter", 30))
-        # title_label.place(x=170, y=20)
 
         # URL entry
         self.url_entry = ctk.CTkEntry(self, placeholder_text="Enter URL to download", font=("Inter", 12), width=425, textvariable=self.url_var)
@@ -226,11 +194,9 @@ class App(ctk.CTk):
         # Progress bar
         self.progressbar = ctk.CTkProgressBar(self, width=300, height=10)
         self.progressbar.set(0)
-        # self.progressbar.place(x=150, y=300)
 
         # Progress label
         self.progress_label = ctk.CTkLabel(self, text="%", fg_color="transparent", font=("Inter", 14), textvariable=self.progress_var)
-        # self.progress_label.place(x=460, y=290)
 
     def set_appearence(self, choice):
         save_settings("appearence", choice)
