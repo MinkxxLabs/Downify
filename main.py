@@ -14,7 +14,6 @@ from io import BytesIO
 from PIL import Image
 
 import pytube
-import git
 import customtkinter as ctk
 from customtkinter import filedialog
 
@@ -61,7 +60,7 @@ def convertToMP3(file_path):
         logger.info(f"Converted {file_path} to MP3.")
 
 def init_settings(path):
-    data = {"download_path":"", "appearence":"", "theme":"", "version":__VERSION__, "branch":"master"}
+    data = {"download_path":"", "appearence":"", "theme":"", "version":__VERSION__}
     if not os.path.exists(path):
         with open(path, 'w') as f:
             json.dump(data, f)
@@ -85,46 +84,6 @@ def restart_app():
         logger.info("Restarting application...")
         python = sys.executable
         os.execl(python, python, *sys.argv)
-
-def check_for_updates(repo_dir):
-    upstream="https://github.com/minkxx/SpotifyDownloaderGUI"
-    branch=load_settings()["branch"]
-    try:
-        repo = git.Repo(repo_dir)
-
-        # Check if the upstream remote already exists; if not, add it
-        if 'upstream' not in [remote.name for remote in repo.remotes]:
-            repo.create_remote('upstream', upstream)
-
-        # Ensure we are tracking the correct branch
-        repo.git.fetch('upstream')
-        
-        # Compare current commit with the latest from upstream
-        current_commit = repo.head.commit.hexsha
-        latest_commit = repo.git.rev_parse(f'upstream/{branch}')
-
-        if current_commit != latest_commit:
-            logger.info("Update available!")
-            # repo.git.reset('--hard', f'upstream/{branch}')
-            restart_app()
-        else:
-            logger.warning("No update needed.")
-    
-    except Exception as e:
-        logger.error(f"An error occurred: {e}")
-
-def auto_update_checker(repo_dir, interval=60):
-    while True:
-        check_for_updates(repo_dir)
-        time.sleep(interval)
-
-def update_app():
-    repo_dir = os.path.dirname(resource_path(__file__))  # Repo directory path
-    
-    # Start the auto-update checker in a separate thread
-    update_thread = threading.Thread(target=auto_update_checker, args=(repo_dir,), daemon=True)
-    update_thread.start()
-
 
 class App(ctk.CTk):
     def __init__(self):
@@ -193,7 +152,6 @@ class App(ctk.CTk):
 
         settings_menu.add_cascade(label="Appearance", menu=appearance_menu)
         settings_menu.add_cascade(label="Theme", menu=theme_menu)
-        settings_menu.add_command(label="Check for Updates", command=update_app)
         settings_menu.add_command(label="Restart", command=restart_app)
         menu_bar.add_cascade(label="Settings", menu=settings_menu)
 
