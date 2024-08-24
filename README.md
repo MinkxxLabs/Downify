@@ -1,9 +1,9 @@
 # Downify
 
-[![Latest Release](https://img.shields.io/github/v/release/minkxx/Downify?style=flat-square)](https://spotipy-api.vercel.app/)
+[![Latest Release](https://img.shields.io/github/v/release/minkxx/Downify?style=flat-square)](https://github.com/minkxx/Downify/releases/latest)
 
 Downify is a powerful and efficient tool that bridges the gap between Spotify and YouTube. Leveraging a custom-built 
-[Spotify API](https://github.com/minkxx/spotipy_API), Downify fetches the song name and artist information and then uses the Pytube library's search function to find and download the corresponding video from YouTube.
+[Spotify API](https://spotipy-api.vercel.app/), Downify fetches the song name and artist information and then uses the Pytube library's search function to find and download the corresponding video from YouTube.
 
 ## Features
 
