@@ -20,7 +20,7 @@ Downify is a powerful and efficient tool that bridges the gap between Spotify an
 
 To install Downify, follow these steps:
 
-1. Go to the [latest release](https://github.com/yourusername/Downify/releases/latest) page.
+1. Go to the [latest release](https://github.com/minkxx/Downify/releases/latest) page.
 2. Download the setup file for your operating system.
 3. Run the setup and follow the on-screen instructions to complete the installation.
 
@@ -30,4 +30,4 @@ After installation, you can start using Downify right away by launching the app.
 
 ## Latest Release
 
-Check out the [latest release](https://github.com/yourusername/Downify/releases/latest) for new features and updates.
+Check out the [latest release](https://github.com/minkxx/Downify/releases/latest) for new features and updates.
