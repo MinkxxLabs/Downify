@@ -1,2 +1,0 @@
-1. Make the app update able
-2. Update progress bar according to the completion of download thread

@@ -13,6 +13,7 @@ from datetime import datetime
 from io import BytesIO
 from PIL import Image
 
+import yt_dlp
 import pytube
 import customtkinter as ctk
 from customtkinter import filedialog
@@ -84,6 +85,14 @@ def restart_app():
         logger.info("Restarting application...")
         python = sys.executable
         os.execl(python, python, *sys.argv)
+
+def progress_hook(d):
+    if d['status'] == 'downloading':
+        print(f"Downloading: {d['_percent_str']} of {d['_total_bytes_str']} at {d['_speed_str']} ETA: {d['_eta_str']}")
+    elif d['status'] == 'finished' :
+        print("Download completed!")
+    elif d['status'] == 'error':
+        print("Error during download!")
 
 class App(ctk.CTk):
     def __init__(self):
@@ -198,6 +207,8 @@ class App(ctk.CTk):
         # Progress label
         self.progress_label = ctk.CTkLabel(self, text="%", fg_color="transparent", font=("Inter", 14), textvariable=self.progress_var)
 
+    # UI functions
+
     def set_appearence(self, choice):
         save_settings("appearence", choice)
         ctk.set_appearance_mode(load_settings()["appearence"])
@@ -221,7 +232,7 @@ class App(ctk.CTk):
             self.output_var.set("Error selecting download path.")
 
     def show_about(self):
-        messagebox.showinfo("About Us", f"Downify {load_settings()["version"]}\nCreated by Monsur\nVisit us at https://minkxx.is-a.dev")
+        messagebox.showinfo("About Us", f"Downify {load_settings()['version']}\nCreated by Monsur\nVisit us at https://minkxx.is-a.dev")
 
     def paste_path(self):
         try:
@@ -231,6 +242,42 @@ class App(ctk.CTk):
         except Exception as e:
             logger.error(f"Error pasting from clipboard: {e}", exc_info=True)
             self.output_var.set("Error pasting clipboard content.")
+
+    def reset_ui(self):
+        self.progressbar.set(0)
+        self.progress_var.set("0 %")
+        self.url_var.set("")
+        self.url_entry.configure(state="normal")
+        self.download_btn.configure(state="normal")
+        self.progressbar.place_forget()
+        self.progress_label.place_forget()
+        self.image_label.configure(image=None)
+        self.thread_running = False
+        clear_temp()
+
+    def update_progress(self):
+        if self.total_items > 0:
+            progress = (self.processed_items / self.total_items) * 100
+            self.progressbar.set(progress / 100)
+            self.progress_var.set(f"{int(progress)} %")
+            self.update()
+            logger.info(f"Progress updated: {int(progress)} %")
+
+    # Download functions
+
+    def download_audio(self, url, output_path):
+        ydl_opts = {
+            'format': 'bestaudio/best',              # Select best audio
+            'extract_audio': True,                   # Extract audio
+            'audio_format': 'mp3',                   # Convert to mp3
+            'progress_hooks': [progress_hook],       # Attach the progress hook
+            'quiet': True,                         # Suppress all other output
+            'no_warnings': True,                   # Disable warnings
+            'outtmpl': output_path + '/%(title)s.%(ext)s',  # Save to user-defined path
+        }
+
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            ydl.download([url])
 
     def download(self):
         create_dir(resource_path("temp"))
@@ -265,25 +312,7 @@ class App(ctk.CTk):
         elif track_type == "playlist":
             self.start_download_playlist_thread(track_type, track_id)
 
-    def reset_ui(self):
-        self.progressbar.set(0)
-        self.progress_var.set("0 %")
-        self.url_var.set("")
-        self.url_entry.configure(state="normal")
-        self.download_btn.configure(state="normal")
-        self.progressbar.place_forget()
-        self.progress_label.place_forget()
-        self.image_label.configure(image=None)
-        self.thread_running = False
-        clear_temp()
-
-    def update_progress(self):
-        if self.total_items > 0:
-            progress = (self.processed_items / self.total_items) * 100
-            self.progressbar.set(progress / 100)
-            self.progress_var.set(f"{int(progress)} %")
-            self.update()
-            logger.info(f"Progress updated: {int(progress)} %")
+    
 
     def download_track(self, track_type, track_id):
         try:
@@ -301,21 +330,13 @@ class App(ctk.CTk):
 
             query = pytube.Search(f"{name} {artists}")
             yt = query.results[0]
+            yt_url = yt.watch_url
 
-            audio_streams = self.get_audio_streams(yt.streams)
-            abr = ["160kbps", "128kbps", "70kbps", "50kbps", "48kbps"]
-
-            for quality in abr:
-                if quality in audio_streams:
-                    try:
-                        stream = audio_streams[quality][0]
-                        song_path = stream.download(output_path=self.download_path.get())
-                        convertToMP3(song_path)
-                        logger.info(f"Downloaded {name} by {artists} at {quality}.")
-                        break
-                    except Exception as e:
-                        logger.error(f"Error downloading {name} at {quality}: {e}", exc_info=True)
-                        continue
+            try:
+                self.download_audio(yt_url, self.download_path.get())
+                logger.info(f"Downloaded {name} by {artists}.")
+            except Exception as e:
+                logger.error(f"Error downloading {name}: {e}", exc_info=True)
 
             self.output_var.set(f"Downloaded : {name} {artists}")
             time.sleep(1)
@@ -354,21 +375,17 @@ class App(ctk.CTk):
                     logger.info(f"Downloading track: {track['track_name']} by {track['artists']}")
 
                     yt = query.results[0]
+                    yt_url = yt.watch_url
+                    try:
+                        self.download_audio(
+                            url=yt_url,
+                            output_path=os.path.join(self.download_path.get(), album_name)
+                            )
+                        logger.info(f"Downloaded {track['track_name']} by {track['artists']}.")
+                        
+                    except Exception as e:
+                        logger.error(f"Error downloading {track['track_name']}: {e}", exc_info=True)
 
-                    audio_streams = self.get_audio_streams(yt.streams)
-                    abr = ["160kbps", "128kbps", "70kbps", "50kbps", "48kbps"]
-
-                    for quality in abr:
-                        if quality in audio_streams:
-                            try:
-                                stream = audio_streams[quality][0]
-                                song_path = stream.download(output_path=os.path.join(self.download_path.get(), album_name))
-                                convertToMP3(song_path)
-                                logger.info(f"Downloaded {track['track_name']} by {track['artists']} at {quality}.")
-                                break
-                            except Exception as e:
-                                logger.error(f"Error downloading {track['track_name']} at {quality}: {e}", exc_info=True)
-                                continue
                     self.processed_items += 1
                     self.update_progress()
                 except Exception as e:
@@ -408,21 +425,17 @@ class App(ctk.CTk):
                     logger.info(f"Downloading track: {track['track_name']} by {track['artists']}")
 
                     yt = query.results[0]
-
-                    audio_streams = self.get_audio_streams(yt.streams)
-                    abr = ["160kbps", "128kbps", "70kbps", "50kbps", "48kbps"]
-
-                    for quality in abr:
-                        if quality in audio_streams:
-                            try:
-                                stream = audio_streams[quality][0]
-                                song_path = stream.download(output_path=os.path.join(self.download_path.get(), f"{playlist_name}"))
-                                convertToMP3(song_path)
-                                logger.info(f"Downloaded {track['track_name']} by {track['artists']} at {quality}.")
-                                break
-                            except Exception as e:
-                                logger.error(f"Error downloading {track['track_name']} at {quality}: {e}", exc_info=True)
-                                continue
+                    yt_url = yt.watch_url
+                    try:
+                        self.download_audio(
+                            url=yt_url,
+                            output_path=os.path.join(self.download_path.get(), playlist_name)
+                            )
+                        logger.info(f"Downloaded {track['track_name']} by {track['artists']}.")
+                        
+                    except Exception as e:
+                        logger.error(f"Error downloading {track['track_name']}: {e}", exc_info=True)
+                            
                     self.processed_items += 1
                     self.update_progress()
                 except Exception as e:
@@ -443,17 +456,6 @@ class App(ctk.CTk):
         playlist_thread = threading.Thread(target=self.download_playlist, args=(track_type, track_id))
         playlist_thread.start()
 
-    def get_audio_streams(self, streams):
-        data = {}
-        abr = ["160kbps", "128kbps", "70kbps", "50kbps", "48kbps"]
-        for q in abr:
-            for i in streams:
-                if i.abr == q:
-                    if q in data:
-                        data[q].append(i)
-                    else:
-                        data[q] = [i]
-        return data
     
     def download_thumbnail(self, image_url):
         current_time = datetime.now()
